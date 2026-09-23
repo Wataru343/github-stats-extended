@@ -5,6 +5,7 @@ node_modules
 
 # Project
 coverage
+output/
 
 apps/backend/.vercel
 apps/backend/.env

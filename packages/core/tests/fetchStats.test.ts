@@ -2,11 +2,12 @@ import axios from "axios";
 import MockAdapter from "axios-mock-adapter";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import statsApi from "../src/api/index.js";
 import { calculateRank } from "../src/calculateRank.js";
 import { loadConfigFromEnv } from "../src/common/config.js";
 import type { GraphQLResponse } from "../src/common/http.js";
 import { fetchStats } from "../src/fetchers/stats.js";
-import type { StatsData } from "../src/fetchers/types.js";
+import type { ContributionTotals, StatsData } from "../src/fetchers/types.js";
 import type { ContributionsQuery } from "../src/graphql/contributionsDocument.js";
 import type {
   RangeContributionsByRepoFragment,
@@ -244,6 +245,7 @@ const fetchStatsWith = ({
   include_contributions = false,
   include_all_time_contribs = false,
   contribs_include_own_repos = false,
+  contributionTotals,
 }: {
   include_all_commits?: boolean;
   exclude_repo?: Array<string>;
@@ -254,6 +256,7 @@ const fetchStatsWith = ({
   include_contributions?: boolean;
   include_all_time_contribs?: boolean;
   contribs_include_own_repos?: boolean;
+  contributionTotals?: ContributionTotals;
 }) =>
   fetchStats(
     "anuraghazra",
@@ -274,6 +277,8 @@ const fetchStatsWith = ({
     include_contributions,
     include_all_time_contribs,
     contribs_include_own_repos,
+    null,
+    contributionTotals,
   );
 
 type RankInput = Parameters<typeof calculateRank>[0];
@@ -351,6 +356,142 @@ afterEach(() => {
 });
 
 describe("Test fetchStats", () => {
+  const profileTotals: ContributionTotals = {
+    totalContributions: 5834,
+    totalCommits: 3827,
+    totalReviews: 516,
+    totalPRs: 1188,
+    totalIssues: 288,
+  };
+
+  function mockProfileMetadata() {
+    const user = structuredClone(user_stats);
+    delete user.commits;
+    delete user.reviews;
+    delete user.pullRequests;
+    delete user.openIssues;
+    delete user.closedIssues;
+    delete user.contributionsCollection;
+    mock.reset();
+    mock
+      .onPost("https://api.github.com/graphql")
+      .reply(200, { data: { user } });
+  }
+
+  it("uses profile totals without API contribution fields, REST searches or annual queries", async () => {
+    mockProfileMetadata();
+    const stats = await fetchStatsWith({
+      include_all_commits: true,
+      include_contributions: true,
+      contributionTotals: profileTotals,
+    });
+    expect(stats).toEqual(
+      expectedStats(profileTotals, {
+        all_commits: true,
+        commits: 3827,
+        reviews: 516,
+        prs: 1188,
+        issues: 288,
+      }),
+    );
+    expect(mock.history.get).toHaveLength(0);
+    expect(mock.history.post).toHaveLength(1);
+    const request = JSON.parse(mock.history.post[0]?.data as string) as {
+      variables: Record<string, unknown>;
+    };
+    expect(request.variables).toMatchObject({
+      includeContributionStats: false,
+      includePullRequestCount: false,
+      includeContributionYears: false,
+    });
+  });
+
+  it("renders the standard dark card using profile counts and the recalculated rank", async () => {
+    mockProfileMetadata();
+    const result = await statsApi(
+      {
+        username: "anuraghazra",
+        theme: "dark",
+        show_icons: "true",
+        include_all_commits: "true",
+        number_format: "long",
+      },
+      null,
+      profileTotals,
+    );
+    expect(result.status).toBe("success");
+    document.body.innerHTML = result.content;
+    expect(document.querySelector('[data-testid="commits"]')).toHaveTextContent(
+      "3827",
+    );
+    expect(document.querySelector('[data-testid="prs"]')).toHaveTextContent(
+      "1188",
+    );
+    expect(document.querySelector('[data-testid="issues"]')).toHaveTextContent(
+      "288",
+    );
+    expect(document.querySelector('[data-testid="stars"]')).toHaveTextContent(
+      "300",
+    );
+    expect(
+      document.querySelector('[data-testid="contribs"]'),
+    ).toHaveTextContent("61");
+    expect(
+      document.querySelector('[data-testid="rank-circle"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-testid="reviews"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-testid="contributions"]'),
+    ).not.toBeInTheDocument();
+    expect(mock.history.get).toHaveLength(0);
+  });
+
+  it("does not fall back to API counts when supplied profile totals are all zero", async () => {
+    mockProfileMetadata();
+    const totals = {
+      totalContributions: 0,
+      totalCommits: 0,
+      totalReviews: 0,
+      totalPRs: 0,
+      totalIssues: 0,
+    };
+    const stats = await fetchStatsWith({
+      include_all_commits: true,
+      contributionTotals: totals,
+    });
+    expect(stats).toMatchObject(totals);
+    expect(mock.history.get).toHaveLength(0);
+  });
+
+  it("rejects partial-year use of all-time profile totals before calling GitHub", async () => {
+    await expect(
+      fetchStatsWith({ contributionTotals: profileTotals }),
+    ).rejects.toThrow("all-time");
+    await expect(
+      fetchStatsWith({
+        include_all_commits: true,
+        commits_year: 2024,
+        contributionTotals: profileTotals,
+      }),
+    ).rejects.toThrow("all-time");
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it.each([-1, 1.5, NaN, Infinity])(
+    "rejects invalid supplied totals: %s",
+    async (totalCommits) => {
+      await expect(
+        fetchStatsWith({
+          include_all_commits: true,
+          contributionTotals: { ...profileTotals, totalCommits },
+        }),
+      ).rejects.toThrow("Invalid profile total");
+      expect(mock.history.post).toHaveLength(0);
+    },
+  );
+
   it("should fetch correct stats", async () => {
     const stats = await fetchStats("anuraghazra");
     expect(stats).toStrictEqual(expectedStats());

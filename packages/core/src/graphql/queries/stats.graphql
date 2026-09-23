@@ -40,14 +40,18 @@ query userInfo(
   $startTime: DateTime = null
   $ownerAffiliations: [RepositoryAffiliation]
   $includeUserRepositories: Boolean!
+  $includeContributionStats: Boolean! = true
+  $includePullRequestCount: Boolean! = true
+  $includeContributionYears: Boolean! = true
 ) {
   user(login: $login) {
     name
     login
-    commits: contributionsCollection(from: $startTime) {
+    commits: contributionsCollection(from: $startTime)
+      @include(if: $includeContributionStats) {
       totalCommitContributions
     }
-    reviews: contributionsCollection {
+    reviews: contributionsCollection @include(if: $includeContributionStats) {
       totalPullRequestReviewContributions
     }
     repositoriesContributedTo(
@@ -57,17 +61,18 @@ query userInfo(
     ) {
       totalCount
     }
-    pullRequests(first: 1) {
+    pullRequests(first: 1) @include(if: $includePullRequestCount) {
       totalCount
     }
     mergedPullRequests: pullRequests(states: MERGED)
       @include(if: $includeMergedPullRequests) {
       totalCount
     }
-    openIssues: issues(states: OPEN) {
+    openIssues: issues(states: OPEN) @include(if: $includeContributionStats) {
       totalCount
     }
-    closedIssues: issues(states: CLOSED) {
+    closedIssues: issues(states: CLOSED)
+      @include(if: $includeContributionStats) {
       totalCount
     }
     followers {
@@ -80,7 +85,7 @@ query userInfo(
       @include(if: $includeDiscussionsAnswers) {
       totalCount
     }
-    contributionsCollection {
+    contributionsCollection @include(if: $includeContributionYears) {
       contributionYears
     }
     ...RepoStars

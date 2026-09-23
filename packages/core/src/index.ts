@@ -16,6 +16,7 @@ export { logger } from "./common/log.js";
 export { request } from "./common/http.js";
 
 export type { ApiResult } from "./api/api-result.js";
+export type { ContributionTotals } from "./fetchers/types.js";
 
 export { default as gist } from "./api/gist.js";
 export { default as api } from "./api/index.js";

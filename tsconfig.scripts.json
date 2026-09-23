@@ -3,6 +3,7 @@
   "include": ["scripts"],
   "compilerOptions": {
     "customConditions": [],
+    "allowImportingTsExtensions": true,
     // Base config sets `types: []`; these scripts run on node
     "types": ["node"]
   }

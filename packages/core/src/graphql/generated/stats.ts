@@ -48,23 +48,26 @@ export type UserInfoQueryVariables = Exact<{
     | null
     | undefined;
   includeUserRepositories: boolean;
+  includeContributionStats?: boolean;
+  includePullRequestCount?: boolean;
+  includeContributionYears?: boolean;
 }>;
 
 export type UserInfoQuery = {
   user: {
     name: string | null;
     login: string;
-    commits: { totalCommitContributions: number };
-    reviews: { totalPullRequestReviewContributions: number };
+    commits?: { totalCommitContributions: number };
+    reviews?: { totalPullRequestReviewContributions: number };
     repositoriesContributedTo: { totalCount: number };
-    pullRequests: { totalCount: number };
+    pullRequests?: { totalCount: number };
     mergedPullRequests?: { totalCount: number };
-    openIssues: { totalCount: number };
-    closedIssues: { totalCount: number };
+    openIssues?: { totalCount: number };
+    closedIssues?: { totalCount: number };
     followers: { totalCount: number };
     repositoryDiscussions?: { totalCount: number };
     repositoryDiscussionComments?: { totalCount: number };
-    contributionsCollection: { contributionYears: Array<number> };
+    contributionsCollection?: { contributionYears: Array<number> };
     repositories: {
       totalCount: number;
       nodes: Array<{ name: string; stargazerCount: number } | null> | null;
@@ -127,14 +130,14 @@ export const UserInfoDocument = graphqlDocument<
   UserInfoQuery,
   UserInfoQueryVariables
 >(`
-query userInfo($login: String!, $after: String, $includeMergedPullRequests: Boolean!, $includeDiscussions: Boolean!, $includeDiscussionsAnswers: Boolean!, $startTime: DateTime = null, $ownerAffiliations: [RepositoryAffiliation], $includeUserRepositories: Boolean!) {
+query userInfo($login: String!, $after: String, $includeMergedPullRequests: Boolean!, $includeDiscussions: Boolean!, $includeDiscussionsAnswers: Boolean!, $startTime: DateTime = null, $ownerAffiliations: [RepositoryAffiliation], $includeUserRepositories: Boolean!, $includeContributionStats: Boolean! = true, $includePullRequestCount: Boolean! = true, $includeContributionYears: Boolean! = true) {
   user(login: $login) {
     name
     login
-    commits: contributionsCollection(from: $startTime) {
+    commits: contributionsCollection(from: $startTime) @include(if: $includeContributionStats) {
       totalCommitContributions
     }
-    reviews: contributionsCollection {
+    reviews: contributionsCollection @include(if: $includeContributionStats) {
       totalPullRequestReviewContributions
     }
     repositoriesContributedTo(
@@ -144,16 +147,16 @@ query userInfo($login: String!, $after: String, $includeMergedPullRequests: Bool
     ) {
       totalCount
     }
-    pullRequests(first: 1) {
+    pullRequests(first: 1) @include(if: $includePullRequestCount) {
       totalCount
     }
     mergedPullRequests: pullRequests(states: MERGED) @include(if: $includeMergedPullRequests) {
       totalCount
     }
-    openIssues: issues(states: OPEN) {
+    openIssues: issues(states: OPEN) @include(if: $includeContributionStats) {
       totalCount
     }
-    closedIssues: issues(states: CLOSED) {
+    closedIssues: issues(states: CLOSED) @include(if: $includeContributionStats) {
       totalCount
     }
     followers {
@@ -165,7 +168,7 @@ query userInfo($login: String!, $after: String, $includeMergedPullRequests: Bool
     repositoryDiscussionComments(onlyAnswers: true) @include(if: $includeDiscussionsAnswers) {
       totalCount
     }
-    contributionsCollection {
+    contributionsCollection @include(if: $includeContributionYears) {
       contributionYears
     }
     ...RepoStars

@@ -27,7 +27,7 @@ import {
   buildReposContributedToDocument,
 } from "../graphql/reposContributedToDocument.js";
 
-import type { RepoUserStats, StatsData } from "./types.js";
+import type { ContributionTotals, RepoUserStats, StatsData } from "./types.js";
 
 /** The subset of the stats response `statsFetcher` returns and threads on. */
 type StatsFetcherResponse = Pick<
@@ -50,6 +50,8 @@ const reposFetcher = createGraphQLFetcher(UserReposDocument, "bearer");
  * @param variables.startTime Time to start the count of total commits.
  * @param variables.ownerAffiliations The owner affiliations to filter by. Default: OWNER.
  * @param variables.includeUserRepositories Whether to include the user's own repositories in the repos contributed to.
+ * @param variables.includeContributionStats Fetch API contribution counts.
+ * @param variables.includeContributionYears Fetch years for additional all-time queries.
  * @param variables.pat PAT override or null.
  * @returns The stats response, with every fetched page's repos merged in.
  *
@@ -64,6 +66,8 @@ const statsFetcher = async ({
   startTime,
   ownerAffiliations,
   includeUserRepositories,
+  includeContributionStats,
+  includeContributionYears,
   pat,
 }: {
   username: string;
@@ -73,6 +77,8 @@ const statsFetcher = async ({
   startTime: string | undefined;
   ownerAffiliations: UserInfoQueryVariables["ownerAffiliations"];
   includeUserRepositories: boolean;
+  includeContributionStats: boolean;
+  includeContributionYears: boolean;
   pat: string | null;
 }): Promise<StatsFetcherResponse> => {
   // only the first request carries the stats themselves
@@ -87,6 +93,10 @@ const statsFetcher = async ({
       startTime,
       ownerAffiliations,
       includeUserRepositories,
+      includeContributionStats,
+      includePullRequestCount:
+        includeContributionStats || includeMergedPullRequests,
+      includeContributionYears,
     },
     pat,
   );
@@ -561,6 +571,7 @@ const fetchAllTimeReposContributedTo = async (
  * @param include_all_time_contribs Include all-time count of repos contributed to.
  * @param contribs_include_own_repos Include user-owned repos in contributed-to counts.
  * @param pat Optional PAT override.
+ * @param contributionTotals Optional all-time profile totals, replacing the API contribution counts.
  * @returns Stats data.
  */
 const fetchStats = async (
@@ -583,9 +594,35 @@ const fetchStats = async (
   include_all_time_contribs = false,
   contribs_include_own_repos = false,
   pat: string | null = null,
+  contributionTotals?: ContributionTotals,
 ): Promise<StatsData> => {
   if (!username) {
     throw new MissingParamError(["username"]);
+  }
+
+  if (contributionTotals) {
+    if (
+      !include_all_commits ||
+      commits_year !== undefined ||
+      repo.length ||
+      owner.length
+    ) {
+      throw new Error("Profile totals require unscoped, all-time stats.");
+    }
+    for (const key of [
+      "totalContributions",
+      "totalCommits",
+      "totalReviews",
+      "totalPRs",
+      "totalIssues",
+    ] as const) {
+      if (
+        !Number.isSafeInteger(contributionTotals[key]) ||
+        contributionTotals[key] < 0
+      ) {
+        throw new Error(`Invalid profile total: ${key}`);
+      }
+    }
   }
 
   const stats: StatsData = {
@@ -622,6 +659,9 @@ const fetchStats = async (
         : toGitHubDateTime(getGitHubYearRange(commits_year).from),
     ownerAffiliations: affiliations,
     includeUserRepositories: contribs_include_own_repos,
+    includeContributionStats: contributionTotals === undefined,
+    includeContributionYears:
+      contributionTotals === undefined || include_all_time_contribs,
     pat,
   });
 
@@ -655,7 +695,9 @@ const fetchStats = async (
   stats.name = user.name || user.login;
 
   // if include_all_commits, fetch all commits using the REST API.
-  if (include_all_commits) {
+  if (contributionTotals) {
+    stats.totalCommits = contributionTotals.totalCommits;
+  } else if (include_all_commits) {
     stats.totalCommits = await totalItemsFetcher(
       username,
       repo,
@@ -665,6 +707,9 @@ const fetchStats = async (
       pat,
     );
   } else {
+    if (!user.commits) {
+      throw new Error("GitHub did not return commit contributions.");
+    }
     stats.totalCommits = user.commits.totalCommitContributions;
   }
   const repoUserStats = await fetchRepoUserStats(
@@ -680,15 +725,34 @@ const fetchStats = async (
   );
   Object.assign(stats, repoUserStats);
 
-  stats.totalPRs = user.pullRequests.totalCount;
+  if (contributionTotals) {
+    stats.totalPRs = contributionTotals.totalPRs;
+    stats.totalReviews = contributionTotals.totalReviews;
+    stats.totalIssues = contributionTotals.totalIssues;
+    stats.totalContributions = contributionTotals.totalContributions;
+  } else {
+    if (
+      !user.pullRequests ||
+      !user.reviews ||
+      !user.openIssues ||
+      !user.closedIssues
+    ) {
+      throw new Error("GitHub did not return contribution counts.");
+    }
+    stats.totalPRs = user.pullRequests.totalCount;
+    stats.totalReviews = user.reviews.totalPullRequestReviewContributions;
+    stats.totalIssues =
+      user.openIssues.totalCount + user.closedIssues.totalCount;
+  }
   if (include_merged_pull_requests) {
+    if (!user.pullRequests) {
+      throw new Error("GitHub did not return the pull request count.");
+    }
     const mergedCount = user.mergedPullRequests?.totalCount ?? 0;
     stats.totalPRsMerged = mergedCount;
     stats.mergedPRsPercentage =
       (mergedCount / user.pullRequests.totalCount) * 100 || 0;
   }
-  stats.totalReviews = user.reviews.totalPullRequestReviewContributions;
-  stats.totalIssues = user.openIssues.totalCount + user.closedIssues.totalCount;
   if (include_discussions) {
     stats.totalDiscussionsStarted = user.repositoryDiscussions?.totalCount ?? 0;
   }
@@ -698,10 +762,19 @@ const fetchStats = async (
   }
   stats.contributedTo = user.repositoriesContributedTo.totalCount;
 
-  if (include_contributions) {
+  if (
+    (include_contributions && !contributionTotals) ||
+    include_all_time_contribs
+  ) {
+    if (!user.contributionsCollection) {
+      throw new Error("GitHub did not return contribution years.");
+    }
+  }
+
+  if (include_contributions && !contributionTotals) {
     stats.totalContributions = await fetchTotalContributions(
       username,
-      user.contributionsCollection.contributionYears,
+      user.contributionsCollection?.contributionYears ?? [],
       pat,
     );
   }
@@ -709,7 +782,7 @@ const fetchStats = async (
   if (include_all_time_contribs) {
     stats.allTimeContributedTo = await fetchAllTimeReposContributedTo(
       user.login,
-      user.contributionsCollection.contributionYears,
+      user.contributionsCollection?.contributionYears ?? [],
       contribs_include_own_repos,
       pat,
     );

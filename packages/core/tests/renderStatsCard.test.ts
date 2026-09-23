@@ -490,12 +490,10 @@ describe("Test renderStatsCard", () => {
 
 describe("test stats API", () => {
   it("should return a permanent error for an invalid color parameter", async () => {
-    const result = await statsApi(
-      // api handler accepts a partial options object at runtime
-      { username: "user", title_color: "not-a-color" } as Parameters<
-        typeof statsApi
-      >[0],
-    );
+    const result = await statsApi({
+      username: "user",
+      title_color: "not-a-color",
+    });
 
     expect(result.status).toBe("error - permanent");
     expect(result.content).toContain(

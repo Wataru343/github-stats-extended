@@ -109,6 +109,58 @@ GitHub-Stats-Extended aims to be fully compatible with github-readme-stats. For 
 
 ## Documentation
 
+### Generate a stats SVG from your public profile
+
+With Node.js 24 and pnpm installed:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+# Set GITHUB_TOKEN (preferred) or PAT_1 in your environment.
+pnpm generate:profile-stats --username Wataru343 --output output/stats.svg
+```
+
+This command builds the core package, opens a headless Chromium browser without
+logging in, and visits each calendar year from 2016 through the current UTC year.
+It reads the public profile's contribution total and activity percentages, then
+calculates `Math.floor(yearTotal * percentage / 100)` for each category before
+summing the years. A year explicitly showing zero contributions needs no activity
+graph. Other missing or invalid data fails the command instead of counting as zero.
+
+The result is the standard dark stats card with icons, all-time commits, and the
+usual rank display. The total and review rows remain hidden, as in the default
+card; review estimates are used in the rank calculation. Names, stars, contributed
+repositories, and followers still come from the GitHub API using the token.
+The language card is a separate feature.
+
+`Wataru343` and `output/stats.svg` are the default arguments. The SVG is only
+replaced after collection and rendering succeed; failures exit with a nonzero
+status and preserve any existing output. Annual values and percentages are logged
+to stdout. Generated files under `output/` are ignored by Git. The command does
+not commit files or publish releases; CI/CD can consume the resulting SVG later.
+
+If Chromium's system dependencies are missing, use
+`pnpm exec playwright install --with-deps chromium`. To use an already installed
+browser, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path.
+
+`pnpm test --run` covers parsing, aggregation, retry behavior, rendering, and
+output preservation. `pnpm test:profile-browser` checks asynchronous DOM loading
+in a real headless browser with local fixtures; it does not contact GitHub.
+
+These category counts are **estimates**, not exact private-repository counts.
+Rounded percentages and per-year truncation can leave a difference from the total.
+The public profile must expose private contributions and its activity overview;
+the overview is limited by the viewer's repository access, so SSO-private category
+totals cannot be guaranteed. See [GitHub's profile contributions documentation](https://docs.github.com/en/account-and-profile/concepts/contributions-on-your-profile#activity-overview).
+
+The programmatic card API accepts an optional third argument of type
+`ContributionTotals` (`totalContributions`, `totalCommits`, `totalReviews`,
+`totalPRs`, `totalIssues`). With these totals, the core skips the corresponding
+API counts and calculates rank from the supplied values. This requires
+`include_all_commits=true`, with no `commits_year`, `repo`, or `owner` filter.
+Calls without this argument retain their existing behavior. This is not an HTTP
+query parameter.
+
 The [card wizard](https://github-stats-extended.vercel.app/frontend) offers some essential customization options. For more advanced customization and other project info check out the [documentation](https://github-stats-extended.vercel.app/frontend/docs/cards/stats/).
 
 ## Acknowledgements

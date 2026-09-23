@@ -54,6 +54,16 @@ export interface StatsData {
   rank: { level: string; percentile: number };
 }
 
+/** All-time totals collected outside the GitHub API, e.g. from a public profile. */
+export type ContributionTotals = Pick<
+  StatsData,
+  | "totalContributions"
+  | "totalCommits"
+  | "totalReviews"
+  | "totalPRs"
+  | "totalIssues"
+>;
+
 export interface Lang {
   name: string;
   // GitHub's GraphQL `Language.color` is nullable — the card falls back to a default.

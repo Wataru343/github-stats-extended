@@ -10,8 +10,9 @@ import { renderError } from "../common/render.js";
 import { fetchStats } from "../fetchers/stats.js";
 import { isLocaleAvailable } from "../translations.js";
 
-// @ts-ignore
+/** @returns {Promise<import("./api-result.js").ApiResult>} Rendered stats card or error. */
 export default async (
+  /** @type {Record<string, string | undefined>} */
   {
     username,
     repo,
@@ -39,7 +40,10 @@ export default async (
     contribs_include_own_repos,
     ...remainingParams
   },
+  /** @type {string | null} */
   pat = null,
+  /** @type {import("../fetchers/types.js").ContributionTotals | undefined} */
+  contributionTotals = undefined,
 ) => {
   const colorParams = pickColorParams(remainingParams);
 
@@ -125,6 +129,7 @@ export default async (
       showStats.includes("all_time_contribs"),
       parseBoolean(contribs_include_own_repos),
       pat,
+      contributionTotals,
     );
 
     return {
