@@ -76,6 +76,7 @@ async function main(): Promise<void> {
       show_icons: "true",
       include_all_commits: "true",
       show: "reviews",
+      number_format: "long",
     },
     token,
     totals,

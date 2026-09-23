@@ -128,7 +128,8 @@ summing the years. A year explicitly showing zero contributions needs no activit
 graph. Other missing or invalid data fails the command instead of counting as zero.
 
 The result is the standard dark stats card with icons, all-time commits, code
-reviews, and the usual rank display. The total contributions row remains hidden;
+reviews, and the usual rank display. Counts are displayed as full integers without
+abbreviations such as `3.8k`. The total contributions row remains hidden;
 review estimates are also used in the rank calculation. Names, stars, contributed
 repositories, and followers still come from the GitHub API using the token.
 The language card is a separate feature.
