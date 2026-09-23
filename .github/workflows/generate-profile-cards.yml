@@ -1,0 +1,68 @@
+name: Generate profile cards
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: GitHub username for the profile cards
+        required: true
+        default: Wataru343
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: generate-profile-cards-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate-and-push:
+    name: Generate and commit profile SVGs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          node-version: 24
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Generate stats SVG
+        run: pnpm generate:profile-stats --username "$PROFILE_USERNAME"
+        env:
+          PROFILE_USERNAME: ${{ inputs.username }}
+          GITHUB_TOKEN: ${{ secrets.PRIVATE_REPOS_ACCESS_TOKEN || github.token }}
+
+      - name: Generate top languages SVG
+        run: pnpm generate:profile-languages --username "$PROFILE_USERNAME"
+        env:
+          PROFILE_USERNAME: ${{ inputs.username }}
+          GITHUB_TOKEN: ${{ secrets.PRIVATE_REPOS_ACCESS_TOKEN || github.token }}
+
+      - name: Commit and push generated SVGs
+        env:
+          TARGET_REF: ${{ github.ref }}
+        run: |
+          if [[ "$TARGET_REF" != refs/heads/* ]]; then
+            echo "Manual runs must target a branch."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --force output/stats.svg output/top-langs.svg
+
+          if git diff --cached --quiet; then
+            echo "Generated SVGs are unchanged."
+            exit 0
+          fi
+
+          git commit -m "chore(stats): update generated profile SVGs"
+          git push origin "HEAD:${TARGET_REF}"

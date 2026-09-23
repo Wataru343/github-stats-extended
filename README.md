@@ -138,7 +138,8 @@ The language card can be generated separately with the command below.
 replaced after collection and rendering succeed; failures exit with a nonzero
 status and preserve any existing output. Annual values and percentages are logged
 to stdout. Generated files under `output/` are ignored by Git. The command does
-not commit files or publish releases; CI/CD can consume the resulting SVG later.
+not commit files or publish releases; the manual Actions workflow below can
+commit generated SVGs to the selected branch.
 
 If Chromium's system dependencies are missing, use
 `pnpm exec playwright install --with-deps chromium`. To use an already installed
@@ -174,6 +175,20 @@ fetcher and the token's access, including its SSO authorization.
 card, the command replaces the SVG only after a successful render; failures exit
 with a nonzero status and preserve the previous file. Generated files under
 `output/` are ignored by Git and can be uploaded as release assets by CI/CD.
+
+### Manually generate and push both profile cards
+
+The **Generate profile cards** workflow runs only when started manually. In the
+repository's **Actions** tab, select the workflow, choose a branch, and run it.
+It generates `output/stats.svg` and `output/top-langs.svg`, then commits and pushes
+them to the branch selected for that run. If both files are unchanged, it skips
+the commit.
+
+The workflow uses the Actions token for public API data by default. To include
+private repositories in the language card, add a repository Actions secret named
+`PROFILE_STATS_TOKEN` with access to those repositories and SSO authorization for
+their organization. Chromium is installed automatically for the contribution
+card.
 
 The programmatic card API accepts an optional third argument of type
 `ContributionTotals` (`totalContributions`, `totalCommits`, `totalReviews`,
