@@ -132,7 +132,7 @@ reviews, and the usual rank display. Counts are displayed as full integers witho
 abbreviations such as `3.8k`. The total contributions row remains hidden;
 review estimates are also used in the rank calculation. Names, stars, contributed
 repositories, and followers still come from the GitHub API using the token.
-The language card is a separate feature.
+The language card can be generated separately with the command below.
 
 `Wataru343` and `output/stats.svg` are the default arguments. The SVG is only
 replaced after collection and rendering succeed; failures exit with a nonzero
@@ -153,6 +153,27 @@ Rounded percentages and per-year truncation can leave a difference from the tota
 The public profile must expose private contributions and its activity overview;
 the overview is limited by the viewer's repository access, so SSO-private category
 totals cannot be guaranteed. See [GitHub's profile contributions documentation](https://docs.github.com/en/account-and-profile/concepts/contributions-on-your-profile#activity-overview).
+
+### Generate a top languages SVG
+
+With Node.js 24, pnpm, and the dependencies installed:
+
+```sh
+# Set GITHUB_TOKEN (preferred) or PAT_1 in your environment.
+pnpm generate:profile-languages --username Wataru343 --output output/top-langs.svg
+```
+
+This command builds the core package and uses its existing top languages API
+handler to generate the standard SVG with `theme=dark`, `layout=compact`, and
+`langs_count=8`, matching the profile's language card settings. Language shares
+retain their percentage display. It fetches language data through the GitHub API;
+Chromium is not required. Repository coverage follows the existing language
+fetcher and the token's access, including its SSO authorization.
+
+`Wataru343` and `output/top-langs.svg` are the default arguments. As with the stats
+card, the command replaces the SVG only after a successful render; failures exit
+with a nonzero status and preserve the previous file. Generated files under
+`output/` are ignored by Git and can be uploaded as release assets by CI/CD.
 
 The programmatic card API accepts an optional third argument of type
 `ContributionTotals` (`totalContributions`, `totalCommits`, `totalReviews`,

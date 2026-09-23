@@ -1,38 +1,9 @@
-import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-import type { ApiResult } from "../packages/core/src/api/api-result.js";
-
 import { collectProfileContributions } from "./profile-contributions.ts";
-
-/** Commit a successful render atomically, preserving the previous SVG on failure. */
-export async function saveStatsSvg(
-  output: string,
-  result: ApiResult,
-): Promise<void> {
-  if (
-    result.status !== "success" ||
-    !/<svg\b/.test(result.content) ||
-    !/<\/svg>\s*$/.test(result.content)
-  ) {
-    throw new Error(
-      `Could not render stats SVG (${result.status})${result.error ? `: ${result.error.message}` : "."}`,
-    );
-  }
-  const target = resolve(output);
-  const parent = dirname(target);
-  await mkdir(parent, { recursive: true });
-  const temporary = await mkdtemp(join(parent, ".profile-stats-"));
-  try {
-    const file = join(temporary, "stats.svg");
-    await writeFile(file, result.content, "utf8");
-    await rename(file, target);
-  } finally {
-    await rm(temporary, { recursive: true, force: true });
-  }
-}
+import { saveSvg } from "./save-svg.ts";
 
 async function main(): Promise<void> {
   const { values } = parseArgs({
@@ -81,7 +52,7 @@ async function main(): Promise<void> {
     token,
     totals,
   );
-  await saveStatsSvg(values.output, result);
+  await saveSvg(values.output, result);
   console.log(`Saved ${resolve(values.output)}`);
 }
 

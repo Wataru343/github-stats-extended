@@ -41,6 +41,7 @@
     "lint:deps": "node scripts/assert-deduped.ts",
     "typecheck": "turbo run typecheck && tsc -p tsconfig.scripts.json",
     "generate:profile-stats": "pnpm --filter ./packages/core run build && node scripts/generate-profile-stats.ts",
+    "generate:profile-languages": "pnpm --filter ./packages/core run build && node scripts/generate-profile-languages.ts",
     "test:profile-browser": "playwright test --config scripts/playwright.config.ts",
     "generate-theme-readme": "node scripts/generate-theme-readme"
   },

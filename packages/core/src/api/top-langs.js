@@ -10,8 +10,9 @@ import { renderError } from "../common/render.js";
 import { fetchTopLanguages } from "../fetchers/top-languages.js";
 import { isLocaleAvailable } from "../translations.js";
 
-// @ts-ignore
+/** @returns {Promise<import("./api-result.js").ApiResult>} Rendered language card or error. */
 export default async (
+  /** @type {Record<string, string | undefined>} */
   {
     username,
     hide,
@@ -33,6 +34,7 @@ export default async (
     stats_format,
     ...remainingParams
   },
+  /** @type {string | null} */
   pat = null,
 ) => {
   const colorParams = pickColorParams(remainingParams);

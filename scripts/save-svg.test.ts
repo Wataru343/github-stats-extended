@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { saveStatsSvg } from "./generate-profile-stats.ts";
+import { saveSvg } from "./save-svg.ts";
 
 let directory: string;
 beforeEach(async () => {
@@ -20,14 +20,14 @@ describe("SVG output", () => {
     await writeFile(target, "previous SVG");
     const content =
       '<svg xmlns="http://www.w3.org/2000/svg"><text>3.8k</text></svg>';
-    await saveStatsSvg(target, { status: "success", content });
+    await saveSvg(target, { status: "success", content });
     expect(await readFile(target, "utf8")).toBe(content);
     expect(await readdir(directory)).toEqual(["stats.svg"]);
   });
 
   it("creates a requested output directory", async () => {
     const target = join(directory, "new", "stats.svg");
-    await saveStatsSvg(target, { status: "success", content: "<svg></svg>" });
+    await saveSvg(target, { status: "success", content: "<svg></svg>" });
     expect(await readFile(target, "utf8")).toBe("<svg></svg>");
   });
 
@@ -37,7 +37,7 @@ describe("SVG output", () => {
       const target = join(directory, "stats.svg");
       await writeFile(target, "previous SVG");
       await expect(
-        saveStatsSvg(target, { status, content: "<svg>error card</svg>" }),
+        saveSvg(target, { status, content: "<svg>error card</svg>" }),
       ).rejects.toThrow("Could not render");
       expect(await readFile(target, "utf8")).toBe("previous SVG");
       expect(await readdir(directory)).toEqual(["stats.svg"]);
@@ -48,7 +48,7 @@ describe("SVG output", () => {
     "rejects invalid output without creating a file",
     async (content) => {
       await expect(
-        saveStatsSvg(join(directory, "stats.svg"), {
+        saveSvg(join(directory, "stats.svg"), {
           status: "success",
           content,
         }),

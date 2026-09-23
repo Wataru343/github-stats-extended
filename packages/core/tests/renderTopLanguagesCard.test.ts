@@ -875,12 +875,10 @@ describe("Test renderTopLanguages", () => {
 
 describe("test top-langs API", () => {
   it("should return a permanent error for an invalid color parameter", async () => {
-    const result = await topLangsApi(
-      // api handler accepts a partial options object at runtime
-      { username: "user", title_color: "not-a-color" } as Parameters<
-        typeof topLangsApi
-      >[0],
-    );
+    const result = await topLangsApi({
+      username: "user",
+      title_color: "not-a-color",
+    });
 
     expect(result.status).toBe("error - permanent");
     expect(result.content).toContain(
