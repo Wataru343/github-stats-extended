@@ -75,6 +75,7 @@ async function main(): Promise<void> {
       theme: "dark",
       show_icons: "true",
       include_all_commits: "true",
+      show: "reviews",
     },
     token,
     totals,
