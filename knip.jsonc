@@ -12,7 +12,7 @@
       "ignore": ["src/graphql/generated/**"]
     },
     "apps/backend": {
-      "entry": ["api-renamed/*.js"]
+      "entry": ["api/*.js"]
     },
     "apps/frontend": {
       "entry": ["src/wakatime-override.ts"],
